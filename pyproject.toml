@@ -2,6 +2,8 @@
 name = "Lcoal AI Coder"
 version = "0.1.0"
 description = "This is an Ai assistant pro programmers and coders."
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
