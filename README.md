@@ -14,3 +14,8 @@ Currently works:
 * Tool: `list_paths_recursive`
 * A predefined question forcing tool usage.
 * The chain: prompt → LLM → tool → LLM → … → tool → LLM → answer
+
+## Plans
+
+More features will come in the next days.
+
