@@ -51,7 +51,7 @@ tools = [
         "type": "function",
         "function": {
             "name": list_paths_recursive.__name__,
-            "description": "Use this function to get list of all directories and files recursively.",
+            "description": "Use this function to get list of all directories and files recursively in the project directory.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -60,7 +60,8 @@ tools = [
                     #     "description": "The ticker symbol for the stock, e.g. GOOG",
                     # }
                 },
-                "required": ["ticker"],
+                "required": [],
+                "optional": ["directory", "exclude_dirs"],
             },
         },
     },
@@ -145,10 +146,11 @@ def main():
     agent = OllamaReactAgent()
 
     # Example 1: Simple query (single tool call)
-    prompt = "Describe this project."
+    prompt = "What directories and files are in the directory? Describe from their names them the project."
     print(f"=== Example 1: {prompt} ===")
     messages1 = [
-        {"role": "user", "content": prompt}
+        {"role": "system", "content": "You are a useful coding assistant. Use the provided tools whenever you need."},
+        {"role": "user", "content": prompt},
     ]
     result1 = agent.run(messages1.copy())
     print(f"\nResult: {result1}")
