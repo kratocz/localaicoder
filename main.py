@@ -145,9 +145,10 @@ def main():
     agent = OllamaReactAgent()
 
     # Example 1: Simple query (single tool call)
-    print("=== Example 1: List dirs ===")
+    prompt = "Describe this project."
+    print(f"=== Example 1: {prompt} ===")
     messages1 = [
-        {"role": "user", "content": "List directories."}
+        {"role": "user", "content": prompt}
     ]
     result1 = agent.run(messages1.copy())
     print(f"\nResult: {result1}")
