@@ -6,3 +6,11 @@ It's homework on the course [AI Agents](https://robotdreams.cz/course/567-ai-age
 
 Licence: [MIT](LICENSE)
 
+## Current Features
+
+Now works:
+
+* Connection to the local ollama server.
+* Tool: `list_paths_recursive`
+* Predefined question forcing tool usage.
+* The chain: prompt → LLM thing → tool → LLM thing → … → tool → LLM thing → answer
