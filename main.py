@@ -76,7 +76,7 @@ available_functions = {
 class OllamaReactAgent:
     """A "ReAct" (Reason and Act) agent using Ollama."""
 
-    def __init__(self, model: str = os.getenv("MODEL", "qwen3:8b-q4_K_M")):
+    def __init__(self, model: str = os.getenv("MODEL", "gpt-oss:20b")):
         self.model = model
         self.max_iterations = 10
 
