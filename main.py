@@ -19,25 +19,29 @@ load_dotenv()
 
 # Function Implementations using LangChain tool decorator
 @tool
-def list_paths_recursive(directory: str = os.getcwd(), exclude_dirs: List[str] = None) -> PathsDict:
+def list_paths_recursive(directory: str = os.getcwd(), exclude_dirs: List[str] = None, include_hidden: bool = False) -> PathsDict:
     """Get a list of all files and directories recursively in a directory.
     
     Args:
         directory: Directory to scan (defaults to current working directory)
         exclude_dirs: List of directory names to exclude from scanning
+        include_hidden: Whether to include hidden directories/files starting with '.' (default: False)
     
     Returns:
         Dictionary with 'directories' and 'files' keys containing sorted lists of paths
     """
     if exclude_dirs is None:
-        exclude_dirs = ['.venv', '__pycache__', '.idea', '.git', 'node_modules']
+        exclude_dirs = ['__pycache__', 'node_modules']
     
     all_dirs = []
     all_files = []
     
     for root, dirs, files in os.walk(directory):
-        # Remove excluded directories from dirs list to prevent os.walk from entering them
-        dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        # Filter directories: exclude specified dirs and optionally hidden dirs
+        dirs[:] = [d for d in dirs if (
+            d not in exclude_dirs and 
+            (include_hidden or not d.startswith('.'))
+        )]
         
         # Add directories (only non-excluded ones)
         for dir_name in dirs:
@@ -46,8 +50,12 @@ def list_paths_recursive(directory: str = os.getcwd(), exclude_dirs: List[str] =
             relative_path = os.path.relpath(dir_path, directory)
             all_dirs.append(relative_path)
 
-        # Add files
+        # Add files (filter hidden files if needed)
         for file_name in files:
+            # Skip hidden files unless include_hidden is True
+            if not include_hidden and file_name.startswith('.'):
+                continue
+                
             file_path = os.path.join(root, file_name)
             # Make path relative to the starting directory
             relative_path = os.path.relpath(file_path, directory)
@@ -81,7 +89,7 @@ def read_file(file_path: str, max_lines: int = 100) -> str:
 
 @tool  
 def write_file(file_path: str, content: str) -> str:
-    """Write content to a file.
+    """Write content to a file with diff preview and user confirmation.
     
     Args:
         file_path: Path to the file to write
@@ -90,13 +98,76 @@ def write_file(file_path: str, content: str) -> str:
     Returns:
         Success or error message
     """
+    import difflib
+    
     try:
+        # Check if file exists and read current content
+        existing_content = ""
+        file_exists = os.path.exists(file_path)
+        
+        if file_exists:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    existing_content = f.read()
+            except Exception as e:
+                return f"Error reading existing file {file_path}: {str(e)}"
+            
+            # If content is the same, no need to write
+            if existing_content == content:
+                return f"No changes needed - file {file_path} already has the same content"
+            
+            # Generate and display diff
+            print(f"\n{'='*60}")
+            print(f"PROPOSED CHANGES TO: {file_path}")
+            print(f"{'='*60}")
+            
+            diff = difflib.unified_diff(
+                existing_content.splitlines(keepends=True),
+                content.splitlines(keepends=True),
+                fromfile=f"{file_path} (current)",
+                tofile=f"{file_path} (proposed)",
+                lineterm=""
+            )
+            
+            diff_lines = list(diff)
+            if not diff_lines:
+                return f"No changes detected in {file_path}"
+            
+            # Print diff with colors
+            for line in diff_lines:
+                if line.startswith('---') or line.startswith('+++'):
+                    print(f"\033[1m{line.rstrip()}\033[0m")  # Bold
+                elif line.startswith('@@'):
+                    print(f"\033[36m{line.rstrip()}\033[0m")  # Cyan
+                elif line.startswith('+'):
+                    print(f"\033[32m{line.rstrip()}\033[0m")  # Green
+                elif line.startswith('-'):
+                    print(f"\033[31m{line.rstrip()}\033[0m")  # Red
+                else:
+                    print(line.rstrip())
+            
+            print(f"{'='*60}")
+            
+            # Ask for user confirmation
+            while True:
+                user_input = input(f"Apply these changes to {file_path}? (y/n): ").lower().strip()
+                if user_input in ['y', 'yes']:
+                    break
+                elif user_input in ['n', 'no']:
+                    return f"Changes to {file_path} cancelled by user"
+                else:
+                    print("Please enter 'y' for yes or 'n' for no")
+        
         # Create directories if they don't exist
         os.makedirs(os.path.dirname(file_path) if os.path.dirname(file_path) else '.', exist_ok=True)
         
+        # Write the file
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
-        return f"Successfully wrote {len(content)} characters to {file_path}"
+        
+        action = "updated" if file_exists else "created"
+        return f"Successfully {action} {file_path} ({len(content)} characters)"
+        
     except Exception as e:
         return f"Error writing file {file_path}: {str(e)}"
 
@@ -152,9 +223,20 @@ class AgentRole:
 class MultiAgentCoder:
     """Multi-agent AI Coder system using LangGraph and Ollama."""
 
-    def __init__(self, model: str = os.getenv("MODEL", "gpt-oss:20b")):
-        # Initialize the LLM
-        self.llm = ChatOllama(model=model, temperature=0)
+    def __init__(self, 
+                 model: str = os.getenv("MODEL", "gpt-oss:20b"),
+                 base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")):
+        # Initialize the LLM with configurable base URL
+        self.llm = ChatOllama(
+            model=model, 
+            temperature=0,
+            base_url=base_url
+        )
+        
+        # Print configuration info
+        print(f"🤖 Multi-Agent Coder initialized:")
+        print(f"   Model: {model}")
+        print(f"   Ollama Server: {base_url}")
         
         # Create specialized agent LLMs with different prompts
         self.agents = self._create_agents()
@@ -230,17 +312,17 @@ Use command execution tools only.
             # Add coordinator system message
             coordinator_messages = [
                 SystemMessage(content="""
-You are the Coordinator agent. Analyze the user's request and decide:
-1. What type of task this is (code analysis, file management, command execution, etc.)
-2. Which specialized agent should handle it
-3. Provide reasoning for your decision
+You are the Coordinator agent. Analyze the user's request and provide clear routing instructions.
 
-Respond with your analysis and route to the appropriate agent:
-- For code analysis: route to 'code_analyzer'
-- For file operations: route to 'file_manager'  
-- For running commands: route to 'command_executor'
-- For planning complex tasks: route to 'task_planner'
-- If task is complete: route to 'end'
+For the user's request, respond with:
+1. Brief analysis of what they want
+2. Clear routing instruction using one of these phrases:
+   - "Route to file_manager" - for file/directory operations (list, read, write files)
+   - "Route to code_analyzer" - for code analysis, bug finding, reviews
+   - "Route to command_executor" - for running commands, tests, builds
+   - "Route to task_planner" - for complex multi-step planning
+
+Example: "User wants to list project files. Route to file_manager to handle directory scanning."
 """)
             ] + messages
             
@@ -281,8 +363,19 @@ Look for bugs, improvements, and explain functionality.
             
             manager_messages = [
                 SystemMessage(content="""
-You are the File Manager. Use file tools to handle all file operations.
-Read, write, and organize files as requested.
+You are the File Manager agent. Your job is to handle file and directory operations using the available tools.
+
+Available tools:
+- list_paths_recursive: List files and directories in a project
+- read_file: Read the contents of a specific file  
+- write_file: Write content to a file (with diff preview)
+
+For the user's request, analyze what they need and use the appropriate tool. 
+If they want to list files/directories, use list_paths_recursive.
+If they want to see file contents, use read_file.
+If they want to modify files, use write_file.
+
+Always use tools to complete the task - don't just describe what you would do.
 """)
             ] + messages
             
@@ -308,21 +401,32 @@ Run tests, builds, git operations, and other development commands.
             messages = state['messages']
             last_message = messages[-1]
             
-            # Simple routing logic based on message content
+            # Enhanced routing logic
             content = last_message.content.lower()
             
-            if 'code_analyzer' in content or 'analyze' in content:
-                return 'code_analyzer'
-            elif 'file_manager' in content or 'file' in content:
+            # Check for explicit routing instructions
+            if 'file_manager' in content:
                 return 'file_manager'
-            elif 'command_executor' in content or 'command' in content or 'run' in content:
+            elif 'code_analyzer' in content:
+                return 'code_analyzer'
+            elif 'command_executor' in content:
                 return 'command_executor'
-            elif 'task_planner' in content or 'plan' in content:
+            elif 'task_planner' in content:
                 return 'task_planner'
-            elif 'end' in content or 'complete' in content:
-                return 'end'
+            elif 'end' in content or 'complete' in content or 'done' in content:
+                return '__end__'
+            
+            # Infer from task content
+            elif any(word in content for word in ['list', 'file', 'directory', 'folder', 'read', 'write']):
+                return 'file_manager'
+            elif any(word in content for word in ['analyze', 'check', 'review', 'bug', 'code']):
+                return 'code_analyzer'
+            elif any(word in content for word in ['run', 'execute', 'command', 'test', 'build']):
+                return 'command_executor'
+            elif any(word in content for word in ['plan', 'task', 'steps', 'strategy']):
+                return 'task_planner'
             else:
-                # Default to file_manager for most programming tasks
+                # Default to file_manager for file-related tasks
                 return 'file_manager'
                 
         def tool_router(state: MessagesState) -> str:
@@ -343,7 +447,7 @@ Run tests, builds, git operations, and other development commands.
                     return 'command_tools'
                 else:
                     return 'file_tools'
-            return 'end'
+            return '__end__'
         
         # Create the graph
         workflow = StateGraph(MessagesState)
@@ -371,7 +475,7 @@ Run tests, builds, git operations, and other development commands.
                 "code_analyzer": "code_analyzer", 
                 "file_manager": "file_manager",
                 "command_executor": "command_executor",
-                "end": "__end__"
+                "__end__": "__end__"
             }
         )
         
@@ -383,7 +487,7 @@ Run tests, builds, git operations, and other development commands.
                 {
                     "file_tools": "file_tools",
                     "command_tools": "command_tools", 
-                    "end": "__end__"
+                    "__end__": "__end__"
                 }
             )
         
@@ -406,28 +510,152 @@ Run tests, builds, git operations, and other development commands.
         
         print(f"\n=== Processing: {message} ===")
         
-        final_state = None
+        all_steps = []
         for step_output in self.graph.stream(initial_state, config):
             print(f"Step: {step_output}")
-            final_state = step_output
+            all_steps.append(step_output)
         
-        # Extract final response
-        if final_state and 'agent' in final_state:
-            final_message = final_state['agent']['messages'][-1]
-            print(f"\nFinal answer: {final_message.content}")
-            return final_message.content
+        # Extract final response - look for the best non-empty response
+        best_response = None
+        best_node = None
         
+        # Check steps in reverse order to find the most recent meaningful response
+        for step in reversed(all_steps):
+            for node_name, node_output in step.items():
+                if 'messages' in node_output and node_output['messages']:
+                    final_message = node_output['messages'][-1]
+                    if hasattr(final_message, 'content') and final_message.content.strip():
+                        content = final_message.content.strip()
+                        # Prefer substantial responses over empty ones
+                        if len(content) > 10:  # Prefer responses with meaningful content
+                            print(f"\nFinal answer from {node_name}: {content}")
+                            return content
+                        elif not best_response:  # Keep as backup if no better response found
+                            best_response = content
+                            best_node = node_name
+        
+        # Fall back to best response found if any
+        if best_response:
+            print(f"\nFinal answer from {best_node}: {best_response}")
+            return best_response
+            
         return "Error: No response generated."
 
 
+def print_help():
+    """Display help information about available commands."""
+    print("""
+╭─────────────────────────────────────────────────────────────╮
+│                    Local AI Coder - Help                    │
+╰─────────────────────────────────────────────────────────────╯
+
+Available Commands:
+  /help, /?     - Show this help message
+  /exit, /quit  - Exit the application
+  /clear        - Clear the conversation memory
+  /model        - Show current model information
+  /config       - Show current configuration
+  
+Usage:
+  - Type any question or request for the AI agents
+  - Use file operations: "read file.py", "list project files"
+  - Ask for code analysis: "analyze main.py for bugs"
+  - Request help: "how to implement authentication"
+  
+Examples:
+  → "What files are in this project?"
+  → "Read the README.md file"
+  → "Create a new Python file with hello world"
+  → "Analyze main.py and suggest improvements"
+  
+The multi-agent system will automatically route your request
+to the appropriate specialist agent (File Manager, Code Analyzer, etc.)
+""")
+
 def main():
+    """Interactive main function with command loop."""
+    print("""
+╭─────────────────────────────────────────────────────────────╮
+│          🤖 Local AI Coder - Multi-Agent System             │
+│                   by robot_dreams course                    │
+╰─────────────────────────────────────────────────────────────╯
+""")
+    
     # Create the Multi-Agent AI Coder system
     agent = MultiAgentCoder()
-
-    # Example: Simple query
-    prompt = "What directories and files are in the directory? Describe from their names the project."
-    result = agent.run(prompt)
-    print(f"\nResult: {result}")
+    
+    # Show example usage
+    print("\n💡 Example usage:")
+    example_prompt = "What directories and files are in the directory? Describe from their names the project."
+    print(f'   "{example_prompt}"')
+    print("\n📝 Type '/help' for more commands, '/exit' to quit\n")
+    
+    # Interactive command loop
+    while True:
+        try:
+            # Get user input
+            user_input = input("🤖 > ").strip()
+            
+            # Handle empty input
+            if not user_input:
+                continue
+                
+            # Handle slash commands
+            if user_input.startswith('/'):
+                command = user_input[1:].lower()
+                
+                if command in ['help', '?']:
+                    print_help()
+                    continue
+                    
+                elif command in ['exit', 'quit']:
+                    print("\n👋 Goodbye! Thanks for using Local AI Coder!")
+                    break
+                    
+                elif command == 'clear':
+                    print("\n🧹 Conversation memory cleared!")
+                    # Recreate agent to clear memory
+                    agent = MultiAgentCoder()
+                    continue
+                    
+                elif command == 'model':
+                    model = os.getenv("MODEL", "gpt-oss:20b")
+                    base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+                    print(f"\n📊 Current configuration:")
+                    print(f"   Model: {model}")
+                    print(f"   Server: {base_url}")
+                    continue
+                    
+                elif command == 'config':
+                    print(f"\n⚙️  Configuration:")
+                    print(f"   Model: {os.getenv('MODEL', 'gpt-oss:20b')}")
+                    print(f"   Ollama Server: {os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')}")
+                    api_key = os.getenv('OLLAMA_API_KEY')
+                    print(f"   API Key: {'***set***' if api_key else 'not set'}")
+                    continue
+                    
+                else:
+                    print(f"❌ Unknown command: /{command}")
+                    print("   Type '/help' for available commands")
+                    continue
+            
+            # Process normal user request
+            print()  # Add spacing
+            result = agent.run(user_input)
+            print(f"\n" + "="*60)
+            
+        except KeyboardInterrupt:
+            print("\n\n👋 Interrupted! Use '/exit' to quit properly.")
+            continue
+            
+        except EOFError:
+            print("\n👋 Goodbye!")
+            break
+            
+        except Exception as e:
+            print(f"\n❌ Error: {e}")
+            print("   Please try again or use '/help' for assistance")
+            continue
 
 if __name__ == "__main__":
     #print(list_paths_recursive())
