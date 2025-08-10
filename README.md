@@ -1,5 +1,7 @@
 # Local AI Coder
 
+> **Author**: [Petr Kratochvíl](https://krato.cz) | **Developed with**: [Claude Code](https://claude.ai/code)
+
 This is an AI assistant for programmers and coders. It's open-source and uses a locally running LLM of your choice. All your programming code, questions, etc. stay on your computer.
 
 It's homework for the course [AI Agents](https://robotdreams.cz/course/567-ai-agents) by the company [robot_dreams](https://robotdreams.cz/). This course has been led by [Lukáš Kellerstein](https://www.linkedin.com/in/lukas-kellerstein/).
@@ -131,12 +133,18 @@ The **File Manager Agent** provides intelligent file operations:
   - Requires user confirmation for all modifications
   - Creates directories automatically as needed
 
+## Credits
+
+**Author**: [Petr Kratochvíl](https://krato.cz)  
+**Development**: This project was developed with the assistance of [Claude Code](https://claude.ai/code) - Anthropic's AI-powered development environment.
+
+The multi-agent architecture, LangGraph implementation, interactive CLI, and advanced features were collaboratively designed and implemented through AI-assisted development.
+
 ## Plans
 
 Potential future enhancements:
 - Git integration tools
 - Code analysis and refactoring tools  
-- Interactive chat mode
 - Web search capabilities
 - Database query tools
 
