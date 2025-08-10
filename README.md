@@ -115,6 +115,27 @@ User Request → Coordinator → Specialized Agent → Tools → Back to Coordin
 - Conditional routing based on task analysis
 - Persistent state management
 
+### Complex Task Example
+
+For complex tasks, the **Coordinator is called multiple times** to orchestrate the workflow. Here's how a request like *"Analyze this project, find all Python files, check them for errors, and create a summary report"* would be processed:
+
+**Execution Flow:**
+1. **1st Coordinator call**: "Need to find Python files" → routes to `File Manager`
+2. **File Manager** → calls `list_paths_recursive` → returns to **2nd Coordinator call**
+3. **2nd Coordinator call**: "Now analyze the found files" → routes to `Code Analyzer`
+4. **Code Analyzer** → calls `read_file` on first Python file → returns to **3rd Coordinator call**  
+5. **3rd Coordinator call**: "Continue analyzing next file" → routes to `Code Analyzer`
+6. **Code Analyzer** → calls `read_file` on second Python file → returns to **4th Coordinator call**
+7. **4th Coordinator call**: "Create summary report" → routes to `File Manager`
+8. **File Manager** → calls `write_file` to create report → returns to **5th Coordinator call**
+9. **5th Coordinator call**: "Task completed" → `__END__`
+
+This **cyclic workflow** enables the system to:
+- **Adapt dynamically** based on intermediate results
+- **Coordinate multiple agents** for complex multi-step tasks  
+- **Maintain context** throughout the entire process
+- **Handle errors gracefully** by adjusting the strategy mid-execution
+
 ## File Management Features
 
 The **File Manager Agent** provides intelligent file operations:
