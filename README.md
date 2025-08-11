@@ -20,8 +20,10 @@ License: [MIT](LICENSE)
 
 **🔧 Technical Features**:
 * **LangGraph-based workflow** with intelligent agent routing
-* **Configurable Ollama connection** - local or remote server support
-* **Environment-based configuration** via `.env` file (model, server URL, API key)
+* **Multiple LLM providers** - Ollama (remote) or HuggingFace (local)
+* **Automatic device detection** - CPU/CUDA/Metal (Apple Silicon) optimization
+* **Smart model management** - checks local cache and prompts before downloads
+* **Environment-based configuration** via `.env` file
 * **Specialized tool sets** per agent for focused functionality
 * **ReAct pattern**: Multi-agent Reason → Act → Observe loops
 * **Persistent conversation memory** via MemorySaver
@@ -37,26 +39,30 @@ License: [MIT](LICENSE)
    uv sync
    ```
 
-2. **Start Ollama server** (if not running):
-   ```bash
-   ollama serve
-   ```
-
-3. **Configure settings** (optional):
-   Edit the `.env` file to customize:
-   ```bash
-   # Model selection
-   MODEL="your-preferred-model"  # Default: gpt-oss:20b
+2. **Configure LLM Provider** (optional):
+   The system uses **HuggingFace** by default (fully local). Edit `.env` file to customize:
    
-   # Ollama server address  
-   OLLAMA_BASE_URL="http://localhost:11434"  # Default: localhost
-   
-   # For remote Ollama servers:
-   # OLLAMA_BASE_URL="http://your-server:11434"
-   # OLLAMA_API_KEY="your_api_key"  # If authentication required
+   **Option A: HuggingFace (fully local, no external dependencies) - DEFAULT**
+   ```bash
+   LLM_PROVIDER="huggingface" 
+   HF_MODEL_ID="openai/gpt-oss-20b"
+   # HF_DEVICE="mps"  # Auto-detects optimal device (CPU/CUDA/Metal)
    ```
+   
+   **Option B: Ollama (requires external server)**
+   ```bash
+   LLM_PROVIDER="ollama"
+   MODEL="gpt-oss:20b"
+   OLLAMA_BASE_URL="http://localhost:11434"
+   ```
+   Start Ollama server: `ollama serve`
+   
+   **Device Auto-Detection:**
+   - 🍎 **Apple Silicon**: Automatically uses Metal Performance Shaders (MPS)
+   - 🟢 **NVIDIA GPU**: Automatically uses CUDA acceleration  
+   - 💻 **CPU Only**: Falls back to CPU inference
 
-4. **Run the agent**:
+3. **Run the agent**:
    ```bash
    ./run.sh
    ```
@@ -74,6 +80,7 @@ License: [MIT](LICENSE)
 - `/clear` - Clear conversation memory (restart agents)
 - `/model` - Show current model information
 - `/config` - Show current configuration
+- `/device` - Show device and hardware information
 
 ### Usage Examples:
 ```bash
@@ -135,6 +142,42 @@ This **cyclic workflow** enables the system to:
 - **Coordinate multiple agents** for complex multi-step tasks  
 - **Maintain context** throughout the entire process
 - **Handle errors gracefully** by adjusting the strategy mid-execution
+
+## LLM Provider Options
+
+### Ollama Provider (External Server)
+- **Pros**: Access to latest models, external GPU servers, model switching
+- **Cons**: Requires Ollama server installation and setup
+- **Best for**: Users with powerful hardware or access to remote Ollama servers
+
+### HuggingFace Provider (Fully Local)
+- **Pros**: No external dependencies, automatic device optimization, offline capable
+- **Cons**: Limited to HuggingFace Hub models, initial download required
+- **Best for**: Users wanting complete local deployment without external services
+- **Smart Downloads**: Checks for locally cached models and prompts before downloading new ones
+
+### Device Optimization
+- **Auto-detection**: Automatically selects optimal device (CPU/CUDA/Metal)
+- **Apple Silicon**: Leverages Metal Performance Shaders for M1/M2/M3 Macs
+- **NVIDIA GPUs**: Uses CUDA acceleration for faster inference
+- **CPU Fallback**: Works on any system with reasonable performance
+
+### Recommended Models
+
+**HuggingFace (Small & Fast):**
+- `microsoft/DialoGPT-small` - Lightweight conversational model
+- `distilgpt2` - Compact general-purpose model
+- `gpt2` - Classic GPT-2 for basic tasks
+
+**HuggingFace (Better Quality):**
+- `openai/gpt-oss-20b` - Large model with excellent quality (default)
+- `microsoft/DialoGPT-medium` - Balanced performance/quality
+- `microsoft/DialoGPT-large` - Higher quality responses
+
+**Ollama (External):**
+- `llama3.1:8b` - Meta's latest 8B parameter model
+- `mistral:7b` - Mistral 7B model
+- `codellama:13b` - Code-specialized model
 
 ## File Management Features
 

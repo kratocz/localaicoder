@@ -1,13 +1,30 @@
 import os
+import platform
+from abc import ABC, abstractmethod
 from dotenv import load_dotenv
-from typing import List, Dict, Any, TypedDict
+from typing import List, Dict, Any, TypedDict, Optional
 
 from langchain_ollama import ChatOllama
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.language_models.base import BaseLanguageModel
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
+
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
+try:
+    from langchain_huggingface import HuggingFacePipeline
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+    from huggingface_hub import HfApi
+    HUGGINGFACE_AVAILABLE = True
+except ImportError:
+    HUGGINGFACE_AVAILABLE = False
 
 # Type alias - more specific structure
 class PathsDict(TypedDict):
@@ -16,6 +33,208 @@ class PathsDict(TypedDict):
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Device Detection Functions
+def detect_optimal_device() -> str:
+    """Auto-detect the best available device for ML inference.
+    
+    Returns:
+        Device string: 'mps' (Metal), 'cuda', or 'cpu'
+    """
+    if TORCH_AVAILABLE:
+        # Check for Apple Silicon Metal support
+        if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            return 'mps'
+        # Check for CUDA support
+        elif torch.cuda.is_available():
+            return 'cuda'
+    
+    # Fallback to CPU
+    return 'cpu'
+
+def get_device_info() -> Dict[str, Any]:
+    """Get detailed device information."""
+    info = {
+        'platform': platform.system(),
+        'machine': platform.machine(),
+        'detected_device': detect_optimal_device(),
+        'torch_available': TORCH_AVAILABLE,
+        'huggingface_available': HUGGINGFACE_AVAILABLE
+    }
+    
+    if TORCH_AVAILABLE:
+        info.update({
+            'torch_version': torch.__version__,
+            'cuda_available': torch.cuda.is_available(),
+            'mps_available': hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
+        })
+        
+        if torch.cuda.is_available():
+            info['cuda_device_count'] = torch.cuda.device_count()
+            info['cuda_device_name'] = torch.cuda.get_device_name(0)
+    
+    return info
+
+# Model Management Functions
+def check_model_exists_locally(model_id: str) -> bool:
+    """Check if HuggingFace model is already downloaded locally."""
+    try:
+        from transformers import AutoTokenizer
+        
+        # Try to load tokenizer from cache - this will fail if model isn't downloaded
+        AutoTokenizer.from_pretrained(model_id, local_files_only=True)
+        return True
+    except Exception:
+        return False
+
+def get_model_info(model_id: str) -> Optional[Dict[str, Any]]:
+    """Get model information from HuggingFace Hub."""
+    try:
+        from huggingface_hub import HfApi
+        api = HfApi()
+        model_info = api.model_info(model_id)
+        
+        # Extract relevant information
+        size_gb = 0
+        try:
+            if hasattr(model_info, 'safetensors') and model_info.safetensors:
+                if isinstance(model_info.safetensors, dict) and 'parameters' in model_info.safetensors:
+                    for file_info in model_info.safetensors['parameters'].values():
+                        if isinstance(file_info, dict) and 'size' in file_info:
+                            size_gb += file_info['size']
+                    size_gb = size_gb / (1024**3)
+        except Exception:
+            # If we can't get size info, that's OK
+            pass
+        
+        return {
+            'id': model_id,
+            'downloads': getattr(model_info, 'downloads', 0),
+            'size_gb': round(size_gb, 2) if size_gb > 0 else None,
+            'tags': getattr(model_info, 'tags', []),
+            'pipeline_tag': getattr(model_info, 'pipeline_tag', None),
+            'library_name': getattr(model_info, 'library_name', None)
+        }
+    except Exception as e:
+        print(f"Warning: Could not fetch model info for {model_id}: {e}")
+        return None
+
+def prompt_model_download(model_id: str) -> bool:
+    """Ask user for confirmation before downloading a model."""
+    print(f"\n📦 Model Download Required")
+    print(f"{'='*60}")
+    print(f"Model: {model_id}")
+    
+    # Get model info
+    model_info = get_model_info(model_id)
+    if model_info:
+        print(f"Downloads: {model_info.get('downloads', 'Unknown'):,}")
+        if model_info.get('size_gb'):
+            print(f"Estimated size: ~{model_info['size_gb']} GB")
+        if model_info.get('tags'):
+            print(f"Tags: {', '.join(model_info['tags'][:5])}")  # Show first 5 tags
+    
+    print(f"{'='*60}")
+    print("This model needs to be downloaded from HuggingFace Hub.")
+    print("The download may take several minutes depending on model size and connection speed.")
+    print()
+    
+    while True:
+        user_input = input("Do you want to download this model? (y/n): ").lower().strip()
+        if user_input in ['y', 'yes']:
+            print("✅ Download confirmed. Starting model download...")
+            return True
+        elif user_input in ['n', 'no']:
+            print("❌ Download cancelled by user.")
+            return False
+        else:
+            print("Please enter 'y' for yes or 'n' for no")
+
+# LLM Provider Abstraction
+class LLMProvider(ABC):
+    """Abstract base class for LLM providers."""
+    
+    @abstractmethod
+    def get_llm(self) -> BaseLanguageModel:
+        """Get configured LLM instance."""
+        pass
+    
+    @abstractmethod
+    def is_available(self) -> bool:
+        """Check if provider is available."""
+        pass
+
+class OllamaProvider(LLMProvider):
+    """Ollama LLM provider."""
+    
+    def __init__(self, model: str, base_url: str):
+        self.model = model
+        self.base_url = base_url
+    
+    def get_llm(self) -> ChatOllama:
+        return ChatOllama(
+            model=self.model, 
+            temperature=0, 
+            base_url=self.base_url
+        )
+    
+    def is_available(self) -> bool:
+        return True  # Always available if ollama package is installed
+
+class HuggingFaceProvider(LLMProvider):
+    """HuggingFace local LLM provider."""
+    
+    def __init__(self, model_id: str, device: Optional[str] = None):
+        self.model_id = model_id
+        self.device = device or detect_optimal_device()
+    
+    def get_llm(self) -> HuggingFacePipeline:
+        if not self.is_available():
+            raise RuntimeError("HuggingFace provider not available. Install: pip install langchain-huggingface torch transformers")
+        
+        # Check if model exists locally
+        if not check_model_exists_locally(self.model_id):
+            print(f"\n🔍 Checking for model: {self.model_id}")
+            print("Model not found in local cache.")
+            
+            # Ask user for download confirmation
+            if not prompt_model_download(self.model_id):
+                raise RuntimeError(f"Model download cancelled by user. Cannot proceed with {self.model_id}")
+        else:
+            print(f"✅ Model {self.model_id} found in local cache")
+        
+        # Configure device for PyTorch
+        device_map = None
+        if self.device == 'mps':
+            device_map = {"": "mps"}
+        elif self.device == 'cuda':
+            device_map = "auto"
+        else:
+            device_map = {"": "cpu"}
+        
+        try:
+            print(f"🚀 Loading {self.model_id} on {self.device}...")
+            return HuggingFacePipeline.from_model_id(
+                model_id=self.model_id,
+                task="text-generation",
+                device_map=device_map,
+                model_kwargs={
+                    "torch_dtype": "auto" if TORCH_AVAILABLE else None,
+                    "low_cpu_mem_usage": True,
+                },
+                pipeline_kwargs={
+                    "max_new_tokens": 512,
+                    "do_sample": True,
+                    "temperature": 0.1,
+                    "return_full_text": False
+                }
+            )
+        except Exception as e:
+            print(f"❌ Failed to load model {self.model_id}: {e}")
+            raise RuntimeError(f"Failed to load HuggingFace model: {e}")
+    
+    def is_available(self) -> bool:
+        return HUGGINGFACE_AVAILABLE and TORCH_AVAILABLE
 
 # Function Implementations using LangChain tool decorator
 @tool
@@ -221,22 +440,42 @@ class AgentRole:
 
 
 class MultiAgentCoder:
-    """Multi-agent AI Coder system using LangGraph and Ollama."""
+    """Multi-agent AI Coder system using LangGraph with multiple LLM providers."""
 
     def __init__(self, 
+                 llm_provider: str = os.getenv("LLM_PROVIDER", "huggingface"),
                  model: str = os.getenv("MODEL", "gpt-oss:20b"),
-                 base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")):
-        # Initialize the LLM with configurable base URL
-        self.llm = ChatOllama(
-            model=model, 
-            temperature=0,
-            base_url=base_url
-        )
+                 base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+                 device: Optional[str] = os.getenv("HF_DEVICE")):
+        
+        # Initialize LLM provider based on configuration
+        self.llm_provider_name = llm_provider.lower()
+        self.device_info = get_device_info()
+        
+        if self.llm_provider_name == "huggingface":
+            # Use HuggingFace provider
+            hf_model_id = os.getenv("HF_MODEL_ID", "openai/gpt-oss-20b")
+            self.provider = HuggingFaceProvider(model_id=hf_model_id, device=device)
+            if not self.provider.is_available():
+                print("⚠️  HuggingFace provider not available, falling back to Ollama")
+                self.llm_provider_name = "ollama"
+                self.provider = OllamaProvider(model=model, base_url=base_url)
+        else:
+            # Use Ollama provider (default)
+            self.provider = OllamaProvider(model=model, base_url=base_url)
+        
+        # Get LLM instance
+        self.llm = self.provider.get_llm()
         
         # Print configuration info
         print(f"🤖 Multi-Agent Coder initialized:")
-        print(f"   Model: {model}")
-        print(f"   Ollama Server: {base_url}")
+        print(f"   Provider: {self.llm_provider_name}")
+        if self.llm_provider_name == "ollama":
+            print(f"   Model: {model}")
+            print(f"   Ollama Server: {base_url}")
+        else:
+            print(f"   Model: {getattr(self.provider, 'model_id', 'N/A')}")
+            print(f"   Device: {self.device_info['detected_device']} (auto-detected)")
         
         # Create specialized agent LLMs with different prompts
         self.agents = self._create_agents()
@@ -294,13 +533,24 @@ You are the Command Executor agent. Your role is to:
 Use command execution tools only.
 """
         
-        return {
-            AgentRole.COORDINATOR: self.llm.bind_tools([]),
-            AgentRole.TASK_PLANNER: self.llm.bind_tools([]),
-            AgentRole.CODE_ANALYZER: self.llm.bind_tools(file_tools),
-            AgentRole.FILE_MANAGER: self.llm.bind_tools(file_tools),
-            AgentRole.COMMAND_EXECUTOR: self.llm.bind_tools(command_tools),
-        }
+        # Check if LLM supports bind_tools (for Ollama)
+        if hasattr(self.llm, 'bind_tools'):
+            return {
+                AgentRole.COORDINATOR: self.llm.bind_tools([]),
+                AgentRole.TASK_PLANNER: self.llm.bind_tools([]),
+                AgentRole.CODE_ANALYZER: self.llm.bind_tools(file_tools),
+                AgentRole.FILE_MANAGER: self.llm.bind_tools(file_tools),
+                AgentRole.COMMAND_EXECUTOR: self.llm.bind_tools(command_tools),
+            }
+        else:
+            # For HuggingFace models, we'll handle tools separately
+            return {
+                AgentRole.COORDINATOR: self.llm,
+                AgentRole.TASK_PLANNER: self.llm,
+                AgentRole.CODE_ANALYZER: self.llm,
+                AgentRole.FILE_MANAGER: self.llm,
+                AgentRole.COMMAND_EXECUTOR: self.llm,
+            }
         
     def _build_multi_agent_graph(self):
         """Build the multi-agent LangGraph workflow."""
@@ -555,6 +805,7 @@ Available Commands:
   /clear        - Clear the conversation memory
   /model        - Show current model information
   /config       - Show current configuration
+  /device       - Show device and hardware information
   
 Usage:
   - Type any question or request for the AI agents
@@ -628,10 +879,32 @@ def main():
                     
                 elif command == 'config':
                     print(f"\n⚙️  Configuration:")
+                    print(f"   LLM Provider: {os.getenv('LLM_PROVIDER', 'huggingface')}")
                     print(f"   Model: {os.getenv('MODEL', 'gpt-oss:20b')}")
                     print(f"   Ollama Server: {os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')}")
+                    print(f"   HF Model: {os.getenv('HF_MODEL_ID', 'openai/gpt-oss-20b')}")
+                    print(f"   HF Device: {os.getenv('HF_DEVICE', 'auto-detect')}")
                     api_key = os.getenv('OLLAMA_API_KEY')
                     print(f"   API Key: {'***set***' if api_key else 'not set'}")
+                    continue
+                
+                elif command == 'device':
+                    device_info = get_device_info()
+                    print(f"\n🖥️  Device Information:")
+                    print(f"   Platform: {device_info['platform']} ({device_info['machine']})")
+                    print(f"   Detected Device: {device_info['detected_device']}")
+                    print(f"   PyTorch Available: {'✅' if device_info['torch_available'] else '❌'}")
+                    print(f"   HuggingFace Available: {'✅' if device_info['huggingface_available'] else '❌'}")
+                    
+                    if device_info['torch_available']:
+                        print(f"   PyTorch Version: {device_info.get('torch_version', 'N/A')}")
+                        print(f"   CUDA Available: {'✅' if device_info.get('cuda_available', False) else '❌'}")
+                        print(f"   Metal (MPS) Available: {'✅' if device_info.get('mps_available', False) else '❌'}")
+                        
+                        if device_info.get('cuda_available', False):
+                            print(f"   CUDA Devices: {device_info.get('cuda_device_count', 0)}")
+                            if device_info.get('cuda_device_name'):
+                                print(f"   CUDA Device Name: {device_info['cuda_device_name']}")
                     continue
                     
                 else:

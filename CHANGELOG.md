@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-08-12
+
+### Added
+- **HuggingFace LLM provider** - Fully local LLM support without external dependencies
+- **Automatic device detection** - CPU/CUDA/Metal (Apple Silicon) optimization
+- **Smart model management** - Model cache detection and download confirmation prompts
+- **Provider abstraction layer** - Clean OOP design for multiple LLM providers
+- **Enhanced configuration** - New .env options for LLM provider selection
+- **`/device` command** - Display detailed hardware and device information
+- **Accelerate dependency** - Support for advanced model loading optimizations
+
+### Changed
+- **Default LLM provider** changed from "ollama" to "huggingface" for better out-of-box experience
+- **Enhanced .env.example** with detailed comments explaining each configuration option
+- **Improved error handling** - Graceful fallback from HuggingFace to Ollama on availability issues
+- **Updated documentation** - Comprehensive guides for both LLM providers
+
+### Technical Details
+- HuggingFacePipeline integration with automatic device mapping
+- Model download prompts with size estimates and user consent
+- Device auto-detection prioritizing Metal > CUDA > CPU
+- Provider-specific tool binding with compatibility layer
+- Enhanced dependency management (torch, transformers, huggingface-hub, accelerate)
+
+### Fixed
+- **Tool binding compatibility** - Different approaches for Ollama vs HuggingFace models
+- **Model info extraction** - Robust parsing of HuggingFace model metadata
+- **Import error handling** - Graceful degradation when optional dependencies missing
+
 ## [2.0.0] - 2025-08-11
 
 ### Added
@@ -62,6 +91,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Version Summary
 
 - **v1.0.0**: Basic POC with single-agent React pattern
-- **v2.0.0**: Production-ready multi-agent system with LangGraph architecture
+- **v2.0.0**: Production-ready multi-agent system with LangGraph architecture  
+- **v2.1.0**: Multi-provider LLM support with local HuggingFace integration
 
-**Migration Path**: v1.0.0 → v2.0.0 represents a complete architectural redesign from proof-of-concept to a sophisticated multi-agent system suitable for complex programming assistance tasks.
+**Migration Path**: 
+- v1.0.0 → v2.0.0: Complete architectural redesign to multi-agent system
+- v2.0.0 → v2.1.0: Added local LLM support and enhanced provider abstraction
