@@ -42,21 +42,21 @@ License: [MIT](LICENSE)
 2. **Configure LLM Provider** (optional):
    The system uses **HuggingFace** by default (fully local). Edit `.env` file to customize:
    
-   **Option A: HuggingFace (fully local, no external dependencies) - DEFAULT**
-   ```bash
-   LLM_PROVIDER="huggingface" 
-   HF_MODEL_ID="openai/gpt-oss-20b"
-   # HF_DEVICE="mps"  # Auto-detects optimal device (CPU/CUDA/Metal)
-   ```
-   
-   **Option B: Ollama (requires external server)**
+   **Option A: Ollama (requires external server) - DEFAULT**
    ```bash
    LLM_PROVIDER="ollama"
    MODEL="gpt-oss:20b"
    OLLAMA_BASE_URL="http://localhost:11434"
    ```
    Start Ollama server: `ollama serve`
-   
+
+   **Option B: HuggingFace (fully local, no external dependencies)**
+   ```bash
+   LLM_PROVIDER="huggingface" 
+   HF_MODEL_ID="openai/gpt-oss-20b"
+   # HF_DEVICE="mps"  # Auto-detects optimal device (CPU/CUDA/Metal)
+   ```
+
    **Device Auto-Detection:**
    - 🍎 **Apple Silicon**: Automatically uses Metal Performance Shaders (MPS)
    - 🟢 **NVIDIA GPU**: Automatically uses CUDA acceleration  
