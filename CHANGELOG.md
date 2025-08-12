@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-08-12
+
+### Changed
+- **Environment variable naming** - Changed `MODEL` to `OLLAMA_MODEL` for better clarity and consistency
+- **Default LLM provider** - Reverted default from "huggingface" back to "ollama" in .env.example
+- **Configuration clarity** - Improved naming convention to distinguish Ollama-specific settings
+
+### Technical Details
+- Updated all references from `MODEL` to `OLLAMA_MODEL` in main.py
+- Modified `/config` command output to show "Ollama Model" instead of generic "Model"
+- Enhanced configuration display for better provider-specific identification
+
 ## [2.1.0] - 2025-08-12
 
 ### Added
@@ -93,7 +105,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **v1.0.0**: Basic POC with single-agent React pattern
 - **v2.0.0**: Production-ready multi-agent system with LangGraph architecture  
 - **v2.1.0**: Multi-provider LLM support with local HuggingFace integration
+- **v2.2.0**: Configuration improvements and environment variable consistency
 
 **Migration Path**: 
 - v1.0.0 → v2.0.0: Complete architectural redesign to multi-agent system
 - v2.0.0 → v2.1.0: Added local LLM support and enhanced provider abstraction
+- v2.1.0 → v2.2.0: Environment variable renaming (MODEL → OLLAMA_MODEL)

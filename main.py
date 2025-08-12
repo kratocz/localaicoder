@@ -444,7 +444,7 @@ class MultiAgentCoder:
 
     def __init__(self, 
                  llm_provider: str = os.getenv("LLM_PROVIDER", "huggingface"),
-                 model: str = os.getenv("MODEL", "gpt-oss:20b"),
+                 model: str = os.getenv("OLLAMA_MODEL", "gpt-oss:20b"),
                  base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
                  device: Optional[str] = os.getenv("HF_DEVICE")):
         
@@ -870,7 +870,7 @@ def main():
                     continue
                     
                 elif command == 'model':
-                    model = os.getenv("MODEL", "gpt-oss:20b")
+                    model = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
                     base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
                     print(f"\n📊 Current configuration:")
                     print(f"   Model: {model}")
@@ -880,7 +880,7 @@ def main():
                 elif command == 'config':
                     print(f"\n⚙️  Configuration:")
                     print(f"   LLM Provider: {os.getenv('LLM_PROVIDER', 'huggingface')}")
-                    print(f"   Model: {os.getenv('MODEL', 'gpt-oss:20b')}")
+                    print(f"   Ollama Model: {os.getenv('OLLAMA_MODEL', 'gpt-oss:20b')}")
                     print(f"   Ollama Server: {os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')}")
                     print(f"   HF Model: {os.getenv('HF_MODEL_ID', 'openai/gpt-oss-20b')}")
                     print(f"   HF Device: {os.getenv('HF_DEVICE', 'auto-detect')}")
