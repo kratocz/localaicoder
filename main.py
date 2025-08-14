@@ -4,11 +4,20 @@ from abc import ABC, abstractmethod
 from dotenv import load_dotenv
 from typing import List, Dict, Any, TypedDict, Optional
 
+from rich.console import Console
+from rich.prompt import Confirm
+from rich.text import Text
+from rich.panel import Panel
+from rich.table import Table
+from prompt_toolkit import prompt
+from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.completion import WordCompleter
+
 from langchain_ollama import ChatOllama
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.base import BaseLanguageModel
-from langgraph.graph import StateGraph, MessagesState, START, END
+from langgraph.graph import StateGraph, MessagesState
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -33,6 +42,166 @@ class PathsDict(TypedDict):
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Initialize Rich console and CLI
+console = Console()
+global_cli = None  # Will be initialized in main()
+
+class AdvancedCLI:
+    """Advanced CLI with Rich formatting and Prompt Toolkit features."""
+    
+    def __init__(self):
+        self.history = InMemoryHistory()
+        
+        # Create command completer with slash commands and common phrases
+        commands = [
+            '/help', '/exit', '/quit', '/clear', '/model', '/config', '/device',
+            'What files are in this project?',
+            'Read the README.md file', 
+            'Analyze main.py for bugs',
+            'Create a new Python file',
+            'List project files',
+            'Show me the code structure',
+            'Fix any errors',
+            'Run tests'
+        ]
+        self.completer = WordCompleter(commands, ignore_case=True)
+        
+    def get_user_input(self, prompt_text: str = "🤖 > ") -> str:
+        """Get user input with history, auto-suggest, and completion."""
+        try:
+            user_input = prompt(
+                prompt_text,
+                history=self.history,
+                # Disable auto-suggest to prevent visual conflicts with completion
+                # auto_suggest=AutoSuggestFromHistory(),
+                completer=self.completer,
+                complete_while_typing=False,  # Only complete on Tab press
+            )
+            return user_input.strip()
+        except (KeyboardInterrupt, EOFError):
+            # Handle Ctrl+C and Ctrl+D gracefully
+            raise
+        except OSError:
+            # Fallback to basic input for non-interactive terminals
+            console.print(prompt_text, end="")
+            try:
+                return input().strip()
+            except (KeyboardInterrupt, EOFError):
+                raise
+    
+    def confirm_action(self, message: str, default: bool = False) -> bool:
+        """Ask for user confirmation with Rich styling."""
+        try:
+            return Confirm.ask(f"[bold yellow]{message}[/bold yellow]", default=default)
+        except OSError:
+            # Fallback for non-interactive terminals
+            console.print(f"[bold yellow]{message}[/bold yellow] (y/n): ", end="")
+            try:
+                response = input().lower().strip()
+                return response in ['y', 'yes'] if response else default
+            except (KeyboardInterrupt, EOFError):
+                raise
+    
+    def show_diff_confirmation(self, file_path: str, diff_content: str) -> bool:
+        """Show diff and ask for confirmation with Rich formatting."""
+        # Create a panel for the diff
+        panel = Panel(
+            diff_content,
+            title=f"[bold]Proposed Changes to: {file_path}[/bold]",
+            border_style="yellow",
+            expand=False
+        )
+        console.print(panel)
+        
+        return self.confirm_action(f"Apply these changes to {file_path}?")
+    
+    def show_welcome_message(self):
+        """Display welcome message with Rich formatting."""
+        welcome_text = Text()
+        welcome_text.append("🤖 Local AI Coder - Multi-Agent System\n", style="bold blue")
+        welcome_text.append("by robot_dreams course\n", style="dim")
+        
+        panel = Panel(
+            welcome_text,
+            border_style="blue",
+            padding=(1, 2)
+        )
+        console.print(panel)
+    
+    def show_help(self):
+        """Display help information with Rich formatting."""
+        # Create help table
+        table = Table(title="Available Commands", show_header=True, header_style="bold magenta")
+        table.add_column("Command", style="cyan", no_wrap=True)
+        table.add_column("Description", style="white")
+        
+        # Add slash commands
+        table.add_row("/help, /?", "Show this help message")
+        table.add_row("/exit, /quit", "Exit the application")
+        table.add_row("/clear", "Clear the conversation memory")
+        table.add_row("/model", "Show current model information")
+        table.add_row("/config", "Show current configuration")
+        table.add_row("/device", "Show device and hardware information")
+        table.add_row("Ctrl+D", "Exit the application (EOF)")
+        
+        console.print(table)
+        
+        # Add usage examples
+        examples_panel = Panel(
+            "[bold]Usage Examples:[/bold]\n"
+            "• What files are in this project?\n"
+            "• Read the README.md file\n"
+            "• Create a new Python file with hello world\n"
+            "• Analyze main.py and suggest improvements",
+            title="Examples",
+            border_style="green"
+        )
+        console.print(examples_panel)
+    
+    def show_config_info(self, config_data: Dict[str, str]):
+        """Display configuration with Rich formatting."""
+        table = Table(title="Configuration", show_header=True, header_style="bold cyan")
+        table.add_column("Setting", style="yellow", no_wrap=True)
+        table.add_column("Value", style="white")
+        
+        for key, value in config_data.items():
+            # Mask API keys
+            if 'key' in key.lower() and value:
+                value = '***set***'
+            table.add_row(key, str(value))
+        
+        console.print(table)
+    
+    def show_device_info(self, device_data: Dict[str, Any]):
+        """Display device information with Rich formatting."""
+        table = Table(title="Device Information", show_header=True, header_style="bold green")
+        table.add_column("Component", style="yellow", no_wrap=True)
+        table.add_column("Status", style="white")
+        
+        for key, value in device_data.items():
+            # Convert boolean values to checkmarks
+            if isinstance(value, bool):
+                value = "✅" if value else "❌"
+            table.add_row(key.replace('_', ' ').title(), str(value))
+        
+        console.print(table)
+    
+    def print_info(self, message: str, style: str = "blue"):
+        """Print info message with Rich styling."""
+        console.print(f"[{style}]{message}[/{style}]")
+    
+    def print_error(self, message: str):
+        """Print error message with Rich styling."""
+        console.print(f"[bold red]❌ {message}[/bold red]")
+    
+    def print_success(self, message: str):
+        """Print success message with Rich styling."""
+        console.print(f"[bold green]✅ {message}[/bold green]")
+    
+    def print_warning(self, message: str):
+        """Print warning message with Rich styling."""
+        console.print(f"[bold yellow]⚠️  {message}[/bold yellow]")
 
 # Device Detection Functions
 def detect_optimal_device() -> str:
@@ -119,36 +288,41 @@ def get_model_info(model_id: str) -> Optional[Dict[str, Any]]:
         print(f"Warning: Could not fetch model info for {model_id}: {e}")
         return None
 
-def prompt_model_download(model_id: str) -> bool:
+def prompt_model_download(model_id: str, cli: AdvancedCLI) -> bool:
     """Ask user for confirmation before downloading a model."""
-    print(f"\n📦 Model Download Required")
-    print(f"{'='*60}")
-    print(f"Model: {model_id}")
+    # Create model info display
+    info_lines = [f"Model: {model_id}"]
     
     # Get model info
     model_info = get_model_info(model_id)
     if model_info:
-        print(f"Downloads: {model_info.get('downloads', 'Unknown'):,}")
+        info_lines.append(f"Downloads: {model_info.get('downloads', 'Unknown'):,}")
         if model_info.get('size_gb'):
-            print(f"Estimated size: ~{model_info['size_gb']} GB")
+            info_lines.append(f"Estimated size: ~{model_info['size_gb']} GB")
         if model_info.get('tags'):
-            print(f"Tags: {', '.join(model_info['tags'][:5])}")  # Show first 5 tags
+            info_lines.append(f"Tags: {', '.join(model_info['tags'][:5])}")  # Show first 5 tags
     
-    print(f"{'='*60}")
-    print("This model needs to be downloaded from HuggingFace Hub.")
-    print("The download may take several minutes depending on model size and connection speed.")
-    print()
+    info_lines.extend([
+        "",
+        "This model needs to be downloaded from HuggingFace Hub.",
+        "The download may take several minutes depending on model size and connection speed."
+    ])
     
-    while True:
-        user_input = input("Do you want to download this model? (y/n): ").lower().strip()
-        if user_input in ['y', 'yes']:
-            print("✅ Download confirmed. Starting model download...")
-            return True
-        elif user_input in ['n', 'no']:
-            print("❌ Download cancelled by user.")
-            return False
-        else:
-            print("Please enter 'y' for yes or 'n' for no")
+    # Display model download panel
+    panel = Panel(
+        "\n".join(info_lines),
+        title="📦 Model Download Required",
+        border_style="yellow"
+    )
+    console.print(panel)
+    
+    # Ask for confirmation
+    if cli.confirm_action("Do you want to download this model?"):
+        cli.print_success("Download confirmed. Starting model download...")
+        return True
+    else:
+        cli.print_error("Download cancelled by user.")
+        return False
 
 # LLM Provider Abstraction
 class LLMProvider(ABC):
@@ -184,9 +358,10 @@ class OllamaProvider(LLMProvider):
 class HuggingFaceProvider(LLMProvider):
     """HuggingFace local LLM provider."""
     
-    def __init__(self, model_id: str, device: Optional[str] = None):
+    def __init__(self, model_id: str, device: Optional[str] = None, cli: Optional[AdvancedCLI] = None):
         self.model_id = model_id
         self.device = device or detect_optimal_device()
+        self.cli = cli
     
     def get_llm(self) -> HuggingFacePipeline:
         if not self.is_available():
@@ -194,14 +369,23 @@ class HuggingFaceProvider(LLMProvider):
         
         # Check if model exists locally
         if not check_model_exists_locally(self.model_id):
-            print(f"\n🔍 Checking for model: {self.model_id}")
-            print("Model not found in local cache.")
-            
-            # Ask user for download confirmation
-            if not prompt_model_download(self.model_id):
-                raise RuntimeError(f"Model download cancelled by user. Cannot proceed with {self.model_id}")
+            if self.cli:
+                self.cli.print_info(f"🔍 Checking for model: {self.model_id}")
+                self.cli.print_warning("Model not found in local cache.")
+                
+                # Ask user for download confirmation
+                if not prompt_model_download(self.model_id, self.cli):
+                    raise RuntimeError(f"Model download cancelled by user. Cannot proceed with {self.model_id}")
+            else:
+                # Fallback to basic print if no CLI available
+                print(f"\n🔍 Checking for model: {self.model_id}")
+                print("Model not found in local cache.")
+                raise RuntimeError(f"Model {self.model_id} not found locally and no CLI available for confirmation")
         else:
-            print(f"✅ Model {self.model_id} found in local cache")
+            if self.cli:
+                self.cli.print_success(f"Model {self.model_id} found in local cache")
+            else:
+                print(f"✅ Model {self.model_id} found in local cache")
         
         # Configure device for PyTorch
         device_map = None
@@ -213,7 +397,11 @@ class HuggingFaceProvider(LLMProvider):
             device_map = {"": "cpu"}
         
         try:
-            print(f"🚀 Loading {self.model_id} on {self.device}...")
+            if self.cli:
+                self.cli.print_info(f"🚀 Loading {self.model_id} on {self.device}...")
+            else:
+                print(f"🚀 Loading {self.model_id} on {self.device}...")
+                
             return HuggingFacePipeline.from_model_id(
                 model_id=self.model_id,
                 task="text-generation",
@@ -230,7 +418,10 @@ class HuggingFaceProvider(LLMProvider):
                 }
             )
         except Exception as e:
-            print(f"❌ Failed to load model {self.model_id}: {e}")
+            if self.cli:
+                self.cli.print_error(f"Failed to load model {self.model_id}: {e}")
+            else:
+                print(f"❌ Failed to load model {self.model_id}: {e}")
             raise RuntimeError(f"Failed to load HuggingFace model: {e}")
     
     def is_available(self) -> bool:
@@ -238,7 +429,7 @@ class HuggingFaceProvider(LLMProvider):
 
 # Function Implementations using LangChain tool decorator
 @tool
-def list_paths_recursive(directory: str = os.getcwd(), exclude_dirs: List[str] = None, include_hidden: bool = False) -> PathsDict:
+def list_paths_recursive(directory: str = "", exclude_dirs: List[str] = None, include_hidden: bool = False) -> PathsDict:
     """Get a list of all files and directories recursively in a directory.
     
     Args:
@@ -249,36 +440,55 @@ def list_paths_recursive(directory: str = os.getcwd(), exclude_dirs: List[str] =
     Returns:
         Dictionary with 'directories' and 'files' keys containing sorted lists of paths
     """
+    # Handle empty directory string
+    if not directory or directory.strip() == "":
+        directory = os.getcwd()
+    
+    # Check if directory exists
+    if not os.path.exists(directory):
+        return PathsDict(
+            directories=[],
+            files=[]
+        )
+    
     if exclude_dirs is None:
         exclude_dirs = ['__pycache__', 'node_modules']
     
     all_dirs = []
     all_files = []
     
-    for root, dirs, files in os.walk(directory):
-        # Filter directories: exclude specified dirs and optionally hidden dirs
-        dirs[:] = [d for d in dirs if (
-            d not in exclude_dirs and 
-            (include_hidden or not d.startswith('.'))
-        )]
-        
-        # Add directories (only non-excluded ones)
-        for dir_name in dirs:
-            dir_path = os.path.join(root, dir_name)
-            # Make path relative to the starting directory
-            relative_path = os.path.relpath(dir_path, directory)
-            all_dirs.append(relative_path)
+    try:
+        for root, dirs, files in os.walk(directory):
+            # Filter directories: exclude specified dirs and optionally hidden dirs
+            dirs[:] = [d for d in dirs if (
+                d not in exclude_dirs and 
+                (include_hidden or not d.startswith('.'))
+            )]
+            
+            # Add directories (only non-excluded ones)
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                # Make path relative to the starting directory
+                relative_path = os.path.relpath(dir_path, directory)
+                all_dirs.append(relative_path)
 
-        # Add files (filter hidden files if needed)
-        for file_name in files:
-            # Skip hidden files unless include_hidden is True
-            if not include_hidden and file_name.startswith('.'):
-                continue
+            # Add files (filter hidden files if needed)
+            for file_name in files:
+                # Skip hidden files unless include_hidden is True
+                if not include_hidden and file_name.startswith('.'):
+                    continue
+                    
+                file_path = os.path.join(root, file_name)
+                # Make path relative to the starting directory
+                relative_path = os.path.relpath(file_path, directory)
+                all_files.append(relative_path)
                 
-            file_path = os.path.join(root, file_name)
-            # Make path relative to the starting directory
-            relative_path = os.path.relpath(file_path, directory)
-            all_files.append(relative_path)
+    except (OSError, PermissionError) as e:
+        # Return empty result if we can't read the directory
+        return PathsDict(
+            directories=[],
+            files=[]
+        )
     
     return PathsDict(
         directories=sorted(all_dirs),
@@ -336,10 +546,6 @@ def write_file(file_path: str, content: str) -> str:
                 return f"No changes needed - file {file_path} already has the same content"
             
             # Generate and display diff
-            print(f"\n{'='*60}")
-            print(f"PROPOSED CHANGES TO: {file_path}")
-            print(f"{'='*60}")
-            
             diff = difflib.unified_diff(
                 existing_content.splitlines(keepends=True),
                 content.splitlines(keepends=True),
@@ -352,30 +558,40 @@ def write_file(file_path: str, content: str) -> str:
             if not diff_lines:
                 return f"No changes detected in {file_path}"
             
-            # Print diff with colors
+            # Format diff content for Rich display
+            diff_content = ""
             for line in diff_lines:
                 if line.startswith('---') or line.startswith('+++'):
-                    print(f"\033[1m{line.rstrip()}\033[0m")  # Bold
+                    diff_content += f"[bold]{line.rstrip()}[/bold]\n"
                 elif line.startswith('@@'):
-                    print(f"\033[36m{line.rstrip()}\033[0m")  # Cyan
+                    diff_content += f"[cyan]{line.rstrip()}[/cyan]\n"
                 elif line.startswith('+'):
-                    print(f"\033[32m{line.rstrip()}\033[0m")  # Green
+                    diff_content += f"[green]{line.rstrip()}[/green]\n"
                 elif line.startswith('-'):
-                    print(f"\033[31m{line.rstrip()}\033[0m")  # Red
+                    diff_content += f"[red]{line.rstrip()}[/red]\n"
                 else:
-                    print(line.rstrip())
+                    diff_content += line.rstrip() + "\n"
             
-            print(f"{'='*60}")
-            
-            # Ask for user confirmation
-            while True:
-                user_input = input(f"Apply these changes to {file_path}? (y/n): ").lower().strip()
-                if user_input in ['y', 'yes']:
-                    break
-                elif user_input in ['n', 'no']:
+            # Use advanced CLI if available, otherwise fallback
+            if global_cli:
+                if not global_cli.show_diff_confirmation(file_path, diff_content.rstrip()):
                     return f"Changes to {file_path} cancelled by user"
-                else:
-                    print("Please enter 'y' for yes or 'n' for no")
+            else:
+                # Fallback to basic confirmation
+                print(f"\n{'='*60}")
+                print(f"PROPOSED CHANGES TO: {file_path}")
+                print(f"{'='*60}")
+                print(diff_content)
+                print(f"{'='*60}")
+                
+                while True:
+                    user_input = input(f"Apply these changes to {file_path}? (y/n): ").lower().strip()
+                    if user_input in ['y', 'yes']:
+                        break
+                    elif user_input in ['n', 'no']:
+                        return f"Changes to {file_path} cancelled by user"
+                    else:
+                        print("Please enter 'y' for yes or 'n' for no")
         
         # Create directories if they don't exist
         os.makedirs(os.path.dirname(file_path) if os.path.dirname(file_path) else '.', exist_ok=True)
@@ -446,11 +662,13 @@ class MultiAgentCoder:
                  llm_provider: str = os.getenv("LLM_PROVIDER", "huggingface"),
                  model: str = os.getenv("OLLAMA_MODEL", "gpt-oss:20b"),
                  base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-                 device: Optional[str] = os.getenv("HF_DEVICE")):
+                 device: Optional[str] = os.getenv("HF_DEVICE"),
+                 cli: Optional[AdvancedCLI] = None):
         
         # Initialize LLM provider based on configuration
         self.llm_provider_name = llm_provider.lower()
         self.device_info = get_device_info()
+        self.cli = cli
         
         # Validate provider name
         valid_providers = ["huggingface", "ollama"]
@@ -460,7 +678,7 @@ class MultiAgentCoder:
         if self.llm_provider_name == "huggingface":
             # Use HuggingFace provider
             hf_model_id = os.getenv("HF_MODEL_ID", "openai/gpt-oss-20b")
-            self.provider = HuggingFaceProvider(model_id=hf_model_id, device=device)
+            self.provider = HuggingFaceProvider(model_id=hf_model_id, device=device, cli=cli)
             if not self.provider.is_available():
                 raise RuntimeError("HuggingFace provider not available. Install required dependencies: pip install langchain-huggingface torch transformers")
         elif self.llm_provider_name == "ollama":
@@ -471,14 +689,24 @@ class MultiAgentCoder:
         self.llm = self.provider.get_llm()
         
         # Print configuration info
-        print(f"🤖 Multi-Agent Coder initialized:")
-        print(f"   Provider: {self.llm_provider_name}")
-        if self.llm_provider_name == "ollama":
-            print(f"   Model: {model}")
-            print(f"   Ollama Server: {base_url}")
+        if self.cli:
+            self.cli.print_info("🤖 Multi-Agent Coder initialized:")
+            self.cli.print_info(f"   Provider: {self.llm_provider_name}")
+            if self.llm_provider_name == "ollama":
+                self.cli.print_info(f"   Model: {model}")
+                self.cli.print_info(f"   Ollama Server: {base_url}")
+            else:
+                self.cli.print_info(f"   Model: {getattr(self.provider, 'model_id', 'N/A')}")
+                self.cli.print_info(f"   Device: {self.device_info['detected_device']} (auto-detected)")
         else:
-            print(f"   Model: {getattr(self.provider, 'model_id', 'N/A')}")
-            print(f"   Device: {self.device_info['detected_device']} (auto-detected)")
+            print(f"🤖 Multi-Agent Coder initialized:")
+            print(f"   Provider: {self.llm_provider_name}")
+            if self.llm_provider_name == "ollama":
+                print(f"   Model: {model}")
+                print(f"   Ollama Server: {base_url}")
+            else:
+                print(f"   Model: {getattr(self.provider, 'model_id', 'N/A')}")
+                print(f"   Device: {self.device_info['detected_device']} (auto-detected)")
         
         # Create specialized agent LLMs with different prompts
         self.agents = self._create_agents()
@@ -795,60 +1023,31 @@ Run tests, builds, git operations, and other development commands.
         return "Error: No response generated."
 
 
-def print_help():
-    """Display help information about available commands."""
-    print("""
-╭─────────────────────────────────────────────────────────────╮
-│                    Local AI Coder - Help                    │
-╰─────────────────────────────────────────────────────────────╯
-
-Available Commands:
-  /help, /?     - Show this help message
-  /exit, /quit  - Exit the application
-  /clear        - Clear the conversation memory
-  /model        - Show current model information
-  /config       - Show current configuration
-  /device       - Show device and hardware information
-  
-Usage:
-  - Type any question or request for the AI agents
-  - Use file operations: "read file.py", "list project files"
-  - Ask for code analysis: "analyze main.py for bugs"
-  - Request help: "how to implement authentication"
-  
-Examples:
-  → "What files are in this project?"
-  → "Read the README.md file"
-  → "Create a new Python file with hello world"
-  → "Analyze main.py and suggest improvements"
-  
-The multi-agent system will automatically route your request
-to the appropriate specialist agent (File Manager, Code Analyzer, etc.)
-""")
-
 def main():
     """Interactive main function with command loop."""
-    print("""
-╭─────────────────────────────────────────────────────────────╮
-│          🤖 Local AI Coder - Multi-Agent System             │
-│                   by robot_dreams course                    │
-╰─────────────────────────────────────────────────────────────╯
-""")
+    global global_cli
+    
+    # Initialize advanced CLI
+    cli = AdvancedCLI()
+    global_cli = cli  # Set global reference for tools
+    
+    # Show welcome message
+    cli.show_welcome_message()
     
     # Create the Multi-Agent AI Coder system
-    agent = MultiAgentCoder()
+    agent = MultiAgentCoder(cli=cli)
     
     # Show example usage
-    print("\n💡 Example usage:")
+    cli.print_info("💡 Example usage:")
     example_prompt = "What directories and files are in the directory? Describe from their names the project."
-    print(f'   "{example_prompt}"')
-    print("\n📝 Type '/help' for more commands, '/exit' to quit\n")
+    cli.print_info(f'   "{example_prompt}"')
+    cli.print_info("📝 Type '/help' for commands, '/exit' or Ctrl+D to quit")
     
     # Interactive command loop
     while True:
         try:
-            # Get user input
-            user_input = input("🤖 > ").strip()
+            # Get user input with advanced CLI
+            user_input = cli.get_user_input()
             
             # Handle empty input
             if not user_input:
@@ -859,78 +1058,68 @@ def main():
                 command = user_input[1:].lower()
                 
                 if command in ['help', '?']:
-                    print_help()
+                    cli.show_help()
                     continue
                     
                 elif command in ['exit', 'quit']:
-                    print("\n👋 Goodbye! Thanks for using Local AI Coder!")
+                    cli.print_success("👋 Goodbye! Thanks for using Local AI Coder!")
                     break
                     
                 elif command == 'clear':
-                    print("\n🧹 Conversation memory cleared!")
+                    cli.print_success("🧹 Conversation memory cleared!")
                     # Recreate agent to clear memory
-                    agent = MultiAgentCoder()
+                    agent = MultiAgentCoder(cli=cli)
                     continue
                     
                 elif command == 'model':
                     model = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
                     base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-                    print(f"\n📊 Current configuration:")
-                    print(f"   Model: {model}")
-                    print(f"   Server: {base_url}")
+                    config_data = {
+                        "Model": model,
+                        "Server": base_url
+                    }
+                    cli.show_config_info(config_data)
                     continue
                     
                 elif command == 'config':
-                    print(f"\n⚙️  Configuration:")
-                    print(f"   LLM Provider: {os.getenv('LLM_PROVIDER', 'huggingface')}")
-                    print(f"   Ollama Model: {os.getenv('OLLAMA_MODEL', 'gpt-oss:20b')}")
-                    print(f"   Ollama Server: {os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')}")
-                    print(f"   HF Model: {os.getenv('HF_MODEL_ID', 'openai/gpt-oss-20b')}")
-                    print(f"   HF Device: {os.getenv('HF_DEVICE', 'auto-detect')}")
-                    api_key = os.getenv('OLLAMA_API_KEY')
-                    print(f"   API Key: {'***set***' if api_key else 'not set'}")
+                    config_data = {
+                        "LLM Provider": os.getenv('LLM_PROVIDER', 'huggingface'),
+                        "Ollama Model": os.getenv('OLLAMA_MODEL', 'gpt-oss:20b'),
+                        "Ollama Server": os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434'),
+                        "HF Model": os.getenv('HF_MODEL_ID', 'openai/gpt-oss-20b'),
+                        "HF Device": os.getenv('HF_DEVICE', 'auto-detect'),
+                        "API Key": os.getenv('OLLAMA_API_KEY', 'not set')
+                    }
+                    cli.show_config_info(config_data)
                     continue
                 
                 elif command == 'device':
                     device_info = get_device_info()
-                    print(f"\n🖥️  Device Information:")
-                    print(f"   Platform: {device_info['platform']} ({device_info['machine']})")
-                    print(f"   Detected Device: {device_info['detected_device']}")
-                    print(f"   PyTorch Available: {'✅' if device_info['torch_available'] else '❌'}")
-                    print(f"   HuggingFace Available: {'✅' if device_info['huggingface_available'] else '❌'}")
-                    
-                    if device_info['torch_available']:
-                        print(f"   PyTorch Version: {device_info.get('torch_version', 'N/A')}")
-                        print(f"   CUDA Available: {'✅' if device_info.get('cuda_available', False) else '❌'}")
-                        print(f"   Metal (MPS) Available: {'✅' if device_info.get('mps_available', False) else '❌'}")
-                        
-                        if device_info.get('cuda_available', False):
-                            print(f"   CUDA Devices: {device_info.get('cuda_device_count', 0)}")
-                            if device_info.get('cuda_device_name'):
-                                print(f"   CUDA Device Name: {device_info['cuda_device_name']}")
+                    cli.show_device_info(device_info)
                     continue
                     
                 else:
-                    print(f"❌ Unknown command: /{command}")
-                    print("   Type '/help' for available commands")
+                    cli.print_error(f"Unknown command: /{command}")
+                    cli.print_info("Type '/help' for available commands")
                     continue
             
             # Process normal user request
-            print()  # Add spacing
+            console.print()  # Add spacing
             result = agent.run(user_input)
-            print(f"\n" + "="*60)
+            console.print(f"\n" + "="*60)
             
         except KeyboardInterrupt:
-            print("\n\n👋 Interrupted! Use '/exit' to quit properly.")
+            cli.print_warning("\n👋 Interrupted! Use '/exit' to quit properly.")
             continue
             
         except EOFError:
-            print("\n👋 Goodbye!")
+            # Handle Ctrl+D gracefully
+            cli.print_success("\n👋 Goodbye! (Ctrl+D detected)")
             break
             
         except Exception as e:
-            print(f"\n❌ Error: {e}")
-            print("   Please try again or use '/help' for assistance")
+            cli.print_error(f"Error: {e}")
+            cli.print_info("Please try again or use '/help' for assistance")
             continue
 
 if __name__ == "__main__":

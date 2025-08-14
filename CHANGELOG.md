@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2025-08-15
+
+### Added
+- **Advanced CLI interface** - Rich formatting and Prompt Toolkit integration for professional user experience
+- **Command history and auto-completion** - Arrow keys for history navigation and Tab completion for commands
+- **Rich output formatting** - Beautiful tables, panels, and color-coded displays for better readability
+- **Enhanced file operations** - Rich diff preview with syntax highlighting for file changes
+- **Keyboard shortcuts** - Ctrl+D (EOF) support for elegant application exit
+- **Interactive command help** - Comprehensive help system with usage examples and command descriptions
+
+### Changed
+- **User input system** - Replaced basic input() with advanced Prompt Toolkit for better UX
+- **Configuration display** - Professional tables for /config and /device commands
+- **Error messages** - Rich-formatted error and success messages with consistent styling
+- **Welcome interface** - Elegant welcome panel with improved visual hierarchy
+
+### Fixed
+- **Tool parameter handling** - Fixed list_paths_recursive to properly handle empty directory strings
+- **Input validation** - Robust error handling for non-interactive terminals with graceful fallbacks
+- **Visual conflicts** - Disabled auto-suggest to prevent display issues with command typing
+
+### Technical Details
+- Added Rich and Prompt Toolkit dependencies for advanced CLI features
+- Implemented AdvancedCLI class with history, completion, and formatting capabilities
+- Enhanced MultiAgentCoder to use CLI for all user interactions
+- Improved list_paths_recursive tool with better error handling and directory validation
+- Added fallback mechanisms for non-interactive terminal environments
+
 ## [2.4.0] - 2025-08-15
 
 ### Added
@@ -139,6 +167,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **v2.2.0**: Configuration improvements and environment variable consistency
 - **v2.3.0**: Strict provider validation and removal of automatic fallbacks
 - **v2.4.0**: Added comprehensive CLAUDE.md documentation for AI development assistance
+- **v2.5.0**: Advanced CLI interface with Rich formatting and enhanced user experience
 
 ## Migration Path
 
@@ -147,3 +176,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - v2.1.0 → v2.2.0: Environment variable renaming (MODEL → OLLAMA_MODEL)
 - v2.2.0 → v2.3.0: Enhanced provider validation - ensure correct LLM_PROVIDER is set
 - v2.3.0 → v2.4.0: Added CLAUDE.md documentation for improved AI development assistance
+- v2.4.0 → v2.5.0: Enhanced CLI with Rich formatting and advanced user interface features
