@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2025-08-15
+
+### Changed
+- **Major code refactoring** - Restructured monolithic main.py (1108 lines) into modular architecture
+- **Package structure** - Organized code into logical packages: agents/, cli/, providers/, tools/, utils/
+- **Maintainability improvements** - Separated concerns for better code organization and testability
+- **Import optimization** - Clean imports with proper `__init__.py` files for each package
+
+### Technical Details
+- **src/agents/** - Multi-agent system components (MultiAgentCoder, AgentRole)
+- **src/cli/** - Advanced CLI interface with Rich formatting
+- **src/providers/** - LLM provider abstraction (Ollama, HuggingFace)
+- **src/tools/** - Agent tools for file operations and command execution
+- **src/utils/** - Device detection and model management utilities
+- **main.py** - Streamlined entry point (48 lines vs 1108 lines)
+
+### Migration Path
+- **No breaking changes** - All functionality preserved, same environment variables
+- **Same commands** - All CLI commands and features work identically
+- **Dependencies unchanged** - Same requirements, no additional installations needed
+
 ## [2.5.0] - 2025-08-15
 
 ### Added
