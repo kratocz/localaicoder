@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2025-08-15
+
+### Added
+- **CLAUDE.md documentation** - Comprehensive guidance for Claude Code when working with this repository
+- **Development commands** - Running, building, configuration instructions for AI development assistance
+- **Architecture documentation** - Multi-agent system overview, LangGraph workflow, and provider abstraction details
+- **Release management process** - Semantic versioning guidelines and step-by-step release procedures
+
+### Technical Details
+- Created CLAUDE.md with development commands, architecture overview, and release procedures
+- Documented multi-agent coordination patterns and LangGraph workflow structure
+- Added semantic versioning guidelines (MAJOR.MINOR.PATCH) with examples
+- Included Czech Republic date format requirements for changelog entries
+
 ## [2.3.0] - 2025-08-15
 
 ### Changed
@@ -124,6 +138,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **v2.1.0**: Multi-provider LLM support with local HuggingFace integration
 - **v2.2.0**: Configuration improvements and environment variable consistency
 - **v2.3.0**: Strict provider validation and removal of automatic fallbacks
+- **v2.4.0**: Added comprehensive CLAUDE.md documentation for AI development assistance
 
 ## Migration Path
 
@@ -131,3 +146,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - v2.0.0 → v2.1.0: Added local LLM support and enhanced provider abstraction
 - v2.1.0 → v2.2.0: Environment variable renaming (MODEL → OLLAMA_MODEL)
 - v2.2.0 → v2.3.0: Enhanced provider validation - ensure correct LLM_PROVIDER is set
+- v2.3.0 → v2.4.0: Added CLAUDE.md documentation for improved AI development assistance
