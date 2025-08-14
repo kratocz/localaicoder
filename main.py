@@ -452,16 +452,19 @@ class MultiAgentCoder:
         self.llm_provider_name = llm_provider.lower()
         self.device_info = get_device_info()
         
+        # Validate provider name
+        valid_providers = ["huggingface", "ollama"]
+        if self.llm_provider_name not in valid_providers:
+            raise ValueError(f"Unknown LLM_PROVIDER: '{llm_provider}'. Valid options are: {', '.join(valid_providers)}")
+        
         if self.llm_provider_name == "huggingface":
             # Use HuggingFace provider
             hf_model_id = os.getenv("HF_MODEL_ID", "openai/gpt-oss-20b")
             self.provider = HuggingFaceProvider(model_id=hf_model_id, device=device)
             if not self.provider.is_available():
-                print("⚠️  HuggingFace provider not available, falling back to Ollama")
-                self.llm_provider_name = "ollama"
-                self.provider = OllamaProvider(model=model, base_url=base_url)
-        else:
-            # Use Ollama provider (default)
+                raise RuntimeError("HuggingFace provider not available. Install required dependencies: pip install langchain-huggingface torch transformers")
+        elif self.llm_provider_name == "ollama":
+            # Use Ollama provider
             self.provider = OllamaProvider(model=model, base_url=base_url)
         
         # Get LLM instance

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-08-14
+
+### Changed
+- **Strict LLM provider validation** - Removed automatic fallback between providers
+- **Enhanced error handling** - Clear error messages for unknown LLM_PROVIDER values
+- **Provider isolation** - Each provider now fails gracefully without falling back to others
+
+### Fixed
+- **Configuration validation** - Application now exits with clear error when invalid LLM_PROVIDER is set
+- **Fallback removal** - Eliminated silent fallback from HuggingFace to Ollama provider
+
+### Technical Details
+- Added provider validation in MultiAgentCoder.__init__()
+- ValueError thrown for unknown LLM_PROVIDER with list of valid options
+- RuntimeError thrown when HuggingFace dependencies are missing (instead of fallback)
+- Improved error messages guide users to correct configuration
+
 ## [2.2.0] - 2025-08-12
 
 ### Changed
@@ -106,8 +123,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **v2.0.0**: Production-ready multi-agent system with LangGraph architecture  
 - **v2.1.0**: Multi-provider LLM support with local HuggingFace integration
 - **v2.2.0**: Configuration improvements and environment variable consistency
+- **v2.3.0**: Strict provider validation and removal of automatic fallbacks
 
 **Migration Path**: 
 - v1.0.0 → v2.0.0: Complete architectural redesign to multi-agent system
 - v2.0.0 → v2.1.0: Added local LLM support and enhanced provider abstraction
 - v2.1.0 → v2.2.0: Environment variable renaming (MODEL → OLLAMA_MODEL)
+- v2.2.0 → v2.3.0: Enhanced provider validation - ensure correct LLM_PROVIDER is set
