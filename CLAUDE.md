@@ -1,6 +1,20 @@
-# CLAUDE.md
+# CLAUDE.md - Educational Project Cut-off Notice
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## ⚠️ IMPORTANT - Claude Code Development Ended
+
+**This file documents Claude Code assistance that ended on August 15, 2025.**
+
+This project was developed as educational homework for the AI Agents course by robot_dreams. All development using Claude Code assistance ended on **August 15, 2025** to avoid potential conflicts with Anthropic's Claude Code product.
+
+**Any future development of this project must proceed without Claude Code assistance.**
+
+This project is intended EXCLUSIVELY for educational and learning purposes, not for commercial use or as a competitor to professional AI development tools.
+
+---
+
+## Original Development Context (Until August 15, 2025)
+
+This file provided guidance to Claude Code (claude.ai/code) when working with code in this repository during the educational development phase.
 
 ## Development Commands
 

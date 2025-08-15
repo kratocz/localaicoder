@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## ⚠️ IMPORTANT NOTICE - Educational Project Cut-off
+
+**Claude Code Development End Date: August 15, 2025**
+
+This project was developed as educational homework for the AI Agents course by robot_dreams. All development using Claude Code assistance ended on August 15, 2025. Any future development must proceed without Claude Code to avoid potential conflicts with Anthropic's Claude Code product.
+
+This project is intended EXCLUSIVELY for educational and learning purposes, not for commercial use or as a competitor to professional AI development tools.
+
+---
+
 ## [2.7.0] - 2025-08-15
 
 ### Fixed

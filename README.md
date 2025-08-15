@@ -2,11 +2,22 @@
 
 > **Author**: [Petr Kratochvíl](https://krato.cz) | **Developed with**: [Claude Code](https://claude.ai/code)
 
+## ⚠️ IMPORTANT DISCLAIMER - Educational Project Only
+
+**This project is intended EXCLUSIVELY for educational and learning purposes.**
+
+- **Educational Context**: Created as homework for the [AI Agents](https://robotdreams.cz/course/567-ai-agents) course by [robot_dreams](https://robotdreams.cz/), led by [Lukáš Kellerstein](https://www.linkedin.com/in/lukas-kellerstein/)
+- **Claude Code Cut-off**: All development using Claude Code ended on **August 15, 2025**. Any future development must proceed without Claude Code assistance to avoid potential conflicts
+- **Non-Commercial Use**: This project is not intended for commercial use or as a competitor to Claude Code or other professional AI development tools
+- **Learning Purpose**: Designed to demonstrate multi-agent AI concepts, LangGraph implementation, and local LLM integration
+
+**License**: [MIT](LICENSE)
+
+---
+
+## About This Project
+
 This is an AI assistant for programmers and coders. It's open-source and uses a locally running LLM of your choice. All your programming code, questions, etc. stay on your computer.
-
-It's homework for the course [AI Agents](https://robotdreams.cz/course/567-ai-agents) by the company [robot_dreams](https://robotdreams.cz/). This course has been led by [Lukáš Kellerstein](https://www.linkedin.com/in/lukas-kellerstein/).
-
-License: [MIT](LICENSE)
 
 ## Current Features
 
