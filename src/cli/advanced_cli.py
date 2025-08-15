@@ -86,7 +86,7 @@ class AdvancedCLI:
         """Display welcome message with Rich formatting."""
         welcome_text = Text()
         welcome_text.append("🤖 Local AI Coder - Multi-Agent System\n", style="bold blue")
-        welcome_text.append("by robot_dreams course\n", style="dim")
+        welcome_text.append("by Petr Kratochvil (krato.cz)\n", style="dim")
         
         panel = Panel(
             welcome_text,

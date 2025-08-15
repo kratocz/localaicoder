@@ -1,6 +1,6 @@
 [project]
 name = "localaicoder"
-version = "2.6.0"
+version = "2.7.0"
 description = "This is an Ai assistant pro programmers and coders."
 license = "MIT"
 license-files = ["LICENSE"]

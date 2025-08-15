@@ -9,12 +9,13 @@ command history, auto-completion, and rich formatting.
 
 import sys
 from dotenv import load_dotenv
+
+# Load environment variables from .env file BEFORE importing other modules
+load_dotenv()
+
 from src.cli.advanced_cli import AdvancedCLI
 from src.agents.multi_agent_coder import MultiAgentCoder
 from src.tools.file_tools import set_global_cli
-
-# Load environment variables from .env file
-load_dotenv()
 
 
 def main():

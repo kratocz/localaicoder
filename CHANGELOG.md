@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2025-08-15
+
+### Fixed
+- **Apple Silicon compatibility** - Fixed .env loading order to properly read LLM_PROVIDER setting
+- **HuggingFace provider stability** - Enhanced numerical stability for models on Apple Silicon/MPS
+- **Model compatibility** - Improved torch_dtype handling and added explicit token settings
+- **Initialization order** - Fixed tool initialization before agent creation
+
+### Changed
+- **Welcome banner** - Updated attribution to "Petr Kratochvil (krato.cz)"
+- **Model recommendations** - Added stable model alternatives for Apple Silicon (gpt2, distilgpt2)
+- **Error handling** - Better error messages for quantized models incompatible with MPS
+- **Model loading** - Added trust_remote_code and attn_implementation settings for stability
+
+### Technical Details
+- **MPS optimizations** - Use torch.float32 for better numerical stability on Apple Silicon
+- **Pipeline settings** - Optimized temperature, top_p, top_k for better generation quality
+- **Token handling** - Explicit pad_token_id and eos_token_id to prevent generation issues
+- **Attention mechanism** - Forced eager attention implementation for MPS compatibility
+
+### Migration Path
+- **No breaking changes** - All existing functionality preserved
+- **Model updates** - Recommended models: gpt2 (stable), distilgpt2 (smaller), avoid microsoft/phi-2 on MPS
+- **Environment variables** - Same .env configuration, better loading order
+
 ## [2.6.0] - 2025-08-15
 
 ### Changed

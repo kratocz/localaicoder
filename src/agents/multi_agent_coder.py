@@ -48,6 +48,12 @@ class MultiAgentCoder:
         # Get LLM instance
         self.llm = self.provider.get_llm()
         
+        # Create tool nodes FIRST
+        self.file_tools = [list_paths_recursive, read_file, write_file]
+        self.command_tools = [run_command]
+        self.file_tool_node = ToolNode(self.file_tools)
+        self.command_tool_node = ToolNode(self.command_tools)
+        
         # Print configuration info
         if self.cli:
             self.cli.print_info("🤖 Multi-Agent Coder initialized:")
@@ -70,12 +76,6 @@ class MultiAgentCoder:
         
         # Create specialized agent LLMs with different prompts
         self.agents = self._create_agents()
-        
-        # Create tool nodes
-        self.file_tools = [list_paths_recursive, read_file, write_file]
-        self.command_tools = [run_command]
-        self.file_tool_node = ToolNode(self.file_tools)
-        self.command_tool_node = ToolNode(self.command_tools)
         
         # Build the multi-agent graph
         self.graph = self._build_multi_agent_graph()
